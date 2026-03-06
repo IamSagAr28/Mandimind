@@ -95,8 +95,15 @@ export default function PricePredictor() {
 
             const best = mandis[0];
             const forecast = data.daily_forecast
-                ? data.daily_forecast.map((f, index) => ({ day: index, price: Math.round(f.predicted_price) }))
-                : getPriceForecast(data.model_prediction.today, data.model_prediction.peak);
+                ? data.daily_forecast.map((f) => ({
+                    day: f.date,
+                    date: f.date,
+                    price: Math.round(f.predicted_price),
+                    type: f.type || 'future'
+                }))
+                : getPriceForecast(data.model_prediction.today, data.model_prediction.peak).map((f, i) => ({
+                    ...f, type: i === 0 ? 'today' : 'future'
+                }));
 
             setResults({
                 mandis,
@@ -408,17 +415,18 @@ function ResultsPanel({ results }) {
                 ))}
             </div>
 
-            {/* Price Forecast Chart */}
+            {/* Price Forecast Table & Chart */}
             <div className="glass" style={{ padding: '28px', boxShadow: 'var(--shadow-md)' }}>
                 <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--foreground)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <TrendingUp size={18} color="var(--primary)" />
-                    Price Forecast — Next 7 Days
+                    Price Timeline — Past &amp; Future
                     <span style={{ fontSize: '0.75rem', background: isRealML ? 'rgba(5,150,105,0.1)' : 'var(--muted)', padding: '2px 10px', borderRadius: 'var(--radius-full)', color: isRealML ? 'var(--primary)' : 'var(--text-muted)', fontWeight: 700, marginLeft: 'auto', border: isRealML ? '1px solid rgba(5,150,105,0.3)' : 'none' }}>
                         {isRealML ? '🤖 RandomForest Model (LIVE)' : 'Mock Data'}
                     </span>
                 </h3>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '20px' }}>{best.name} · {cropObj?.name}{isRealML && mlData && <span style={{ color: 'var(--primary)', fontWeight: 600 }}> · Best sell: {mlData.model_prediction.best_day_to_sell}</span>}</p>
-                <MiniChart forecast={forecast} />
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '20px' }}>{cropObj?.name} price prediction — {best.name}{isRealML && mlData && <span style={{ color: 'var(--primary)', fontWeight: 600 }}> · Best sell: {mlData.model_prediction.best_day_to_sell}</span>}</p>
+
+                <PriceTimelineChart forecast={forecast} />
             </div>
         </div>
     );
@@ -465,55 +473,113 @@ function MandiRow({ mandi, isFirst }) {
     );
 }
 
-function MiniChart({ forecast }) {
+function PriceTimelineChart({ forecast }) {
+    if (!forecast || forecast.length === 0) return null;
+
     const prices = forecast.map(f => f.price);
     const min = Math.min(...prices);
     const max = Math.max(...prices);
     const range = max - min || 1;
-    const W = 100, H = 100;
+    const W = 100, H = 60;
 
-    const points = forecast.map((f, i) => {
+    // Color per type
+    const color = (type) => type === 'past' ? '#94a3b8' : type === 'today' ? '#f59e0b' : '#059669';
+    const bgColor = (type) => type === 'past' ? 'rgba(148,163,184,0.06)' : type === 'today' ? 'rgba(245,158,11,0.1)' : 'rgba(5,150,105,0.06)';
+
+    // SVG points
+    const pts = forecast.map((f, i) => {
         const x = (i / (forecast.length - 1)) * W;
-        const y = H - ((f.price - min) / range) * H * 0.8 - H * 0.1;
-        return `${x},${y}`;
-    }).join(' ');
+        const y = H - ((f.price - min) / range) * H * 0.75 - H * 0.12;
+        return { x, y, ...f };
+    });
 
-    const areaPoints = `0,${H} ` + points + ` ${W},${H}`;
+    // Split into past+today line & future line
+    const todayIdx = forecast.findIndex(f => f.type === 'today');
+    const pastLine = pts.slice(0, todayIdx + 1).map(p => `${p.x},${p.y}`).join(' ');
+    const futureLine = pts.slice(todayIdx).map(p => `${p.x},${p.y}`).join(' ');
+    const areaFuture = `${pts[todayIdx].x},${H} ` + pts.slice(todayIdx).map(p => `${p.x},${p.y}`).join(' ') + ` ${pts[pts.length - 1].x},${H}`;
 
     return (
-        <div style={{ position: 'relative' }}>
-            <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: '140px', overflow: 'visible' }}>
-                <defs>
-                    <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.3" />
-                        <stop offset="100%" stopColor="var(--primary)" stopOpacity="0" />
-                    </linearGradient>
-                </defs>
-                {/* Area */}
-                <polygon points={areaPoints} fill="url(#chartGrad)" />
-                {/* Line */}
-                <polyline points={points} fill="none" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                {/* Dots */}
-                {forecast.map((f, i) => {
-                    const x = (i / (forecast.length - 1)) * W;
-                    const y = H - ((f.price - min) / range) * H * 0.8 - H * 0.1;
-                    return <circle key={i} cx={x} cy={y} r="3" fill="var(--primary)" />;
-                })}
-            </svg>
-
-            {/* X-axis labels */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px' }}>
-                {forecast.map((f, i) => (
-                    <div key={i} style={{ textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                        {i === 0 ? 'Today' : `+${f.day}d`}
-                    </div>
-                ))}
+        <div>
+            {/* SVG Chart */}
+            <div style={{ position: 'relative', marginBottom: '24px' }}>
+                <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: '160px', overflow: 'visible' }}>
+                    <defs>
+                        <linearGradient id="futureGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#059669" stopOpacity="0.25" />
+                            <stop offset="100%" stopColor="#059669" stopOpacity="0" />
+                        </linearGradient>
+                    </defs>
+                    {/* Future area fill */}
+                    {todayIdx >= 0 && <polygon points={areaFuture} fill="url(#futureGrad)" />}
+                    {/* Past line (grey) */}
+                    {pastLine && <polyline points={pastLine} fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="4 2" />}
+                    {/* Future line (green) */}
+                    {futureLine && <polyline points={futureLine} fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />}
+                    {/* Dots */}
+                    {pts.map((p, i) => (
+                        <circle key={i} cx={p.x} cy={p.y} r={p.type === 'today' ? 4 : 3}
+                            fill={color(p.type)} stroke="white" strokeWidth="1" />
+                    ))}
+                    {/* Today vertical line */}
+                    {todayIdx >= 0 && (
+                        <line x1={pts[todayIdx].x} y1="0" x2={pts[todayIdx].x} y2={H}
+                            stroke="#f59e0b" strokeWidth="1" strokeDasharray="3 2" />
+                    )}
+                </svg>
             </div>
 
-            {/* Price range labels */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Low: ₹{Math.min(...prices).toLocaleString('en-IN')}</span>
-                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)' }}>Peak: ₹{Math.max(...prices).toLocaleString('en-IN')}</span>
+            {/* eNAM-style Price Table */}
+            <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                    <thead>
+                        <tr style={{ background: '#1d4e89', color: 'white' }}>
+                            <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 700, borderRadius: '6px 0 0 0' }}>Type</th>
+                            <th style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 700 }}>Date</th>
+                            <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700 }}>Price (₹/Quintal)</th>
+                            <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, borderRadius: '0 6px 0 0' }}>Change</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {forecast.map((f, i) => {
+                            const prev = i > 0 ? forecast[i - 1].price : f.price;
+                            const change = f.price - prev;
+                            const pct = prev > 0 ? ((change / prev) * 100).toFixed(1) : 0;
+                            return (
+                                <tr key={i} style={{
+                                    background: bgColor(f.type),
+                                    borderBottom: '1px solid rgba(0,0,0,0.06)',
+                                    fontWeight: f.type === 'today' ? 700 : 400
+                                }}>
+                                    <td style={{ padding: '9px 14px' }}>
+                                        <span style={{
+                                            display: 'inline-block', padding: '2px 10px',
+                                            borderRadius: '99px', fontSize: '0.7rem', fontWeight: 700,
+                                            background: color(f.type), color: 'white'
+                                        }}>
+                                            {f.type === 'past' ? 'Historical' : f.type === 'today' ? '📍 Today' : '🔮 Forecast'}
+                                        </span>
+                                    </td>
+                                    <td style={{ padding: '9px 14px', textAlign: 'center', color: '#374151' }}>{f.date}</td>
+                                    <td style={{ padding: '9px 14px', textAlign: 'right', fontWeight: 700, color: color(f.type) }}>₹{f.price.toLocaleString('en-IN')}</td>
+                                    <td style={{ padding: '9px 14px', textAlign: 'right', color: change >= 0 ? '#059669' : '#dc2626', fontWeight: 600 }}>
+                                        {i === 0 ? '—' : `${change >= 0 ? '▲' : '▼'} ₹${Math.abs(change).toFixed(0)} (${change >= 0 ? '+' : ''}${pct}%)`}
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+
+            {/* Legend */}
+            <div style={{ display: 'flex', gap: '16px', marginTop: '14px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                {[['#94a3b8', 'Historical (Past)'], ['#f59e0b', 'Today'], ['#059669', 'ML Forecast (Future)']].map(([c, l]) => (
+                    <div key={l} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.74rem', color: '#6b7280' }}>
+                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: c }} />
+                        {l}
+                    </div>
+                ))}
             </div>
         </div>
     );
