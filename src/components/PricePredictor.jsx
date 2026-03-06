@@ -94,7 +94,9 @@ export default function PricePredictor() {
             }));
 
             const best = mandis[0];
-            const forecast = getPriceForecast(data.model_prediction.today, data.model_prediction.peak);
+            const forecast = data.daily_forecast
+                ? data.daily_forecast.map((f, index) => ({ day: index, price: Math.round(f.predicted_price) }))
+                : getPriceForecast(data.model_prediction.today, data.model_prediction.peak);
 
             setResults({
                 mandis,

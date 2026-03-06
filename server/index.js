@@ -326,6 +326,7 @@ app.get('/api/recommend', async (req, res) => {
                 best_day_to_sell: predictions[peakDay]?.date,
                 wait_days: peakDay,
             },
+            daily_forecast: predictions,
             top_mandis: ranked.slice(0, 3),
             recommendation: `Wait ${peakDay} day(s) and sell at ${ranked[0].mandi} for best profit of ₹${ranked[0].net_profit_per_qtl}/quintal`,
         });
