@@ -9,8 +9,17 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MODEL_SCRIPT = path.join(__dirname, '..', 'ml-model-repo', 'ai-model', 'predict.py');
 
-// ── Helper: run the Python ML model ──
+// ── Prediction cache (resets each calendar day) ──
+const predCache = {};
+const getCacheKey = (crop) => `${crop}-${new Date().toDateString()}`;
+
+// ── Helper: run the Python ML model (with cache) ──
 function runPythonPredict(crop = 'Tomato') {
+    const key = getCacheKey(crop);
+    if (predCache[key]) {
+        console.log(`Cache hit for ${crop} ⚡`);
+        return Promise.resolve(predCache[key]);
+    }
     return new Promise((resolve, reject) => {
         // Pass crop as env var so predict.py can filter if needed
         const cmd = `python "${MODEL_SCRIPT}"`;
@@ -21,7 +30,9 @@ function runPythonPredict(crop = 'Tomato') {
                 return;
             }
             try {
-                resolve(JSON.parse(stdout.trim()));
+                const result = JSON.parse(stdout.trim());
+                predCache[key] = result; // save to cache
+                resolve(result);
             } catch (e) {
                 reject(new Error('Failed to parse model output: ' + stdout));
             }
@@ -348,4 +359,14 @@ app.listen(PORT, () => {
     console.log(`\n   POST /api/register    Register farmer`);
     console.log(`   POST /api/send-alert  Broadcast to all`);
     console.log(`   POST /api/send-single Send demo SMS\n`);
+
+    // ⚡ Pre-warm the ML prediction cache for top crops so first user request is instant
+    const topCrops = ['tomato', 'onion', 'potato', 'wheat', 'maize'];
+    console.log('🔥 Pre-warming ML cache for top crops...');
+    topCrops.forEach(crop => {
+        runPythonPredict(crop)
+            .then(() => console.log(`   ✅ Cached: ${crop}`))
+            .catch(() => console.log(`   ⚠️  Skipped: ${crop}`));
+    });
 });
+

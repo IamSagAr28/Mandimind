@@ -188,16 +188,6 @@ export default function PricePredictor() {
                             placeholder="All Districts"
                         />
                         <EnamSelect
-                            label="Market"
-                            value={market}
-                            onChange={e => {
-                                setMarket(e.target.value);
-                                setResults(null);
-                            }}
-                            options={markets.map(m => ({ value: m, label: m }))}
-                            placeholder="All Markets"
-                        />
-                        <EnamSelect
                             label="Commodity Group"
                             value={commodityGroup}
                             onChange={e => {

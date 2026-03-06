@@ -279,65 +279,6 @@ Reply STOP to unsubscribe.
                             </div>
                         </div>
 
-                        {/* Live Demo Box */}
-                        <div className="glass animate-fade-in-right delay-200" style={{ padding: '24px', boxShadow: 'var(--shadow-md)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                                <Zap size={18} color="var(--primary)" />
-                                <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--foreground)' }}>Live Demo — Send Now</div>
-                                <span className="badge-success" style={{ marginLeft: 'auto' }}>Hackathon</span>
-                            </div>
-                            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '14px' }}>
-                                Enter any Indian mobile number to receive an instant price SMS demo.
-                            </p>
-
-                            <div style={{ marginBottom: '10px' }}>
-                                <div style={{ position: 'relative' }}>
-                                    <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>+91</span>
-                                    <input
-                                        id="demo-phone"
-                                        type="tel"
-                                        placeholder="Enter mobile number"
-                                        value={demoPhone}
-                                        onChange={e => setDemoPhone(e.target.value)}
-                                        maxLength={10}
-                                        style={{ ...inputStyle, paddingLeft: '42px', marginBottom: 0 }}
-                                        onFocus={e => e.target.style.borderColor = 'var(--primary)'}
-                                        onBlur={e => e.target.style.borderColor = 'var(--border)'}
-                                    />
-                                </div>
-                            </div>
-
-                            <select
-                                id="demo-crop"
-                                value={demoCrop}
-                                onChange={e => setDemoCrop(e.target.value)}
-                                style={{ ...inputStyle, marginBottom: '14px' }}
-                                onFocus={e => e.target.style.borderColor = 'var(--primary)'}
-                                onBlur={e => e.target.style.borderColor = 'var(--border)'}
-                            >
-                                {CROPS.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.name}</option>)}
-                            </select>
-
-                            <button
-                                id="demo-send-btn"
-                                onClick={handleDemo}
-                                disabled={!demoPhone || demoStatus === 'loading'}
-                                className="btn-primary"
-                                style={{ width: '100%', justifyContent: 'center', opacity: !demoPhone ? 0.55 : 1 }}
-                            >
-                                {demoStatus === 'loading'
-                                    ? <><Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /><span>Sending…</span></>
-                                    : demoStatus === 'success'
-                                        ? <><CheckCircle size={16} /><span>SMS Sent! Check your phone 📱</span></>
-                                        : <><Send size={16} /><span>Send Demo SMS</span></>
-                                }
-                            </button>
-                            {demoStatus === 'error' && (
-                                <p style={{ fontSize: '0.78rem', color: '#b91c1c', marginTop: '8px', textAlign: 'center' }}>
-                                    Failed. Make sure backend is running and Twilio is configured.
-                                </p>
-                            )}
-                        </div>
                     </div>
                 </div>
             </div>
